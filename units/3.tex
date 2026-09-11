@@ -1,0 +1,97 @@
+\section{Capa de Enlace: Subcapa de Control de Enlace Lógico (LLC)}
+
+La capa de enlace consiste en los algoritmos y protocolos que permiten la comunicación confiable y eficiente de unidades completas de información llamadas \textbf{tramas} (frames) entre dos máquinas adyacentes. Por adyacente, queremos decir que las dos máquinas están conectadas mediante un canal de comunicaciones en el cual los bits se entregan en el mismo orden en que fueron enviados.
+
+En esta sección, nos centraremos en la subcapa de control de enlace lógico, que es la parte de la capa de enlace que se encarga de proporcionar un servicio confiable a la capa de red. A diferencia de la subcapa de control de acceso al medio (MAC), LLC es independiente al hardware.
+
+\subsection{Cuestiones de Diseño de la Capa de Enlace}
+
+La capa de enlace de datos utiliza los servicios de la capa física para enviar y recibir bits a través de los canales de comunicación. Tiene varias funciones específicas, entre las que se incluyen:
+
+\begin{itemize}
+  \item Proporcionar a la capa de red una interfaz de servicio bien definida.
+
+  \item Manejar los errores de transmisión.
+
+  \item Regular el flujo de datos para que los emisores rápidos no saturen a los receptores lentos.
+\end{itemize}
+
+Para cumplir con estas metas, la capa de enlace de datos toma los paquetes que obtiene de la capa de red y los encapsula en tramas para transmitirlos. Cada trama contiene un encabezado, un campo de carga útil (payload) para almacenar el paquete y un terminador. El manejo de las
+tramas es la tarea más importante de la capa de enlace de datos.
+
+\subsubsection{Servicios Proporcionados a la Capa de Red}
+
+La capa de enlace de datos puede diseñarse para ofrecer varios servicios. Los servicios reales ofrecidos varían de un protocolo a otro. Tres posibilidades razonables que normalmente se proporcionan son:
+
+\begin{itemize}
+  \item \textbf{Servicio sin conexión ni confirmación de recepción:} La capa de enlace de datos simplemente acepta los paquetes de la capa de red, los encapsula en tramas y los envía. No se proporciona ninguna confirmación de recepción. Ethernet es un buen ejemplo de una capa de enlace de datos que provee esta clase de servicio. Esta clase de servicio es apropiada cuando la tasa de error es muy baja, de modo que la recuperación se deja a las capas superiores. También es apropiada para el tráfico en tiempo real, como el de voz, en donde es peor tener retraso en los datos que errores en ellos.
+  \item \textbf{Servicio sin conexión con confirmación de recepción:} La capa de enlace acepta los paquetes de la capa de red y los envía. Luego espera una confirmación de recepción. Si no se recibe la confirmación, la trama se puede retransmitir. 802.11 (WiFi) es un buen ejemplo de esta clase de servicio.
+  \item \textbf{Servicio con conexión y confirmación de recepción:} La capa de enlace establece una conexión con el otro extremo antes de enviar los paquetes. Este servicio garantiza que cada trama se reciba correctamente y en el orden correcto. 
+\end{itemize}
+
+\subsubsection{Entramado}
+
+Para proporcionar el servicio a la capa de red, la capa de enlace de datos debe utilizar el flujo de bits continuo que le entrega la capa física. Dado que la capa física no ofrece garantías de integridad ni mecanismos de delimitación, la capa de enlace debe fragmentar el flujo de bits en tramas, de modo que el receptor pueda identificar inequívocamente el inicio y el fin de cada una. Este proceso se denomina \textbf{entramado}.
+
+Veremos cuatro métodos para llevar a cabo el entramado:
+
+\begin{itemize}
+  \item \textbf{Conteo de bytes:} 
+  Emplea un campo en el encabezado de la trama para especificar el número de bytes que contiene la misma. Cuando el receptor procesa el encabezado, utiliza este valor para determinar en qué punto exacto finaliza la trama actual. Su deficiencia fundamental es la fragilidad ante errores de transmisión: si el campo de conteo se corrompe por ruido, el receptor perderá la sincronización, ya que leerá el conteo erróneo, procesará el final de la trama en el lugar equivocado y será incapaz de identificar el inicio lógico de las tramas subsiguientes.
+
+  \item \textbf{Bytes bandera con relleno de bytes:} 
+  Resuelve el problema de la pérdida de sincronización delimitando el inicio y el fin de cada trama con un byte especial reservado, denominado byte bandera (\texttt{FLAG}). El problema surge cuando el patrón de bits que representa al byte bandera aparece dentro de los datos. Para evitar que el receptor interprete este dato como el final de la trama, el transmisor inserta un byte especial de escape (\texttt{ESC}) justo antes de la aparición del byte bandera en los datos. Este proceso de inyección se conoce como relleno de bytes. Si el propio byte de escape forma parte de los datos útiles, el transmisor lo precede con otro byte de escape. El hardware receptor elimina sistemáticamente estos bytes de escape añadidos antes de entregar el paquete a la capa de red.
+
+  \item \textbf{Bits bandera con relleno de bits:} 
+  A diferencia del relleno de bytes, esta técnica permite tramas formadas por cantidades arbitrarias de bits y no exige que los caracteres se definan de a porciones de 8 bits. Cada trama empieza y termina con un patrón de bits específico, convencionalmente \texttt{01111110} (\texttt{0x7E}). Para evitar la interpretación errónea en los datos, se emplea el relleno de bits a nivel de hardware: cada vez que el transmisor encuentra cinco bits \texttt{1} consecutivos en los datos, inserta un bit \texttt{0} forzado en el flujo transmitido. En el extremo receptor, al detectar cinco bits \texttt{1} consecutivos seguidos de un \texttt{0}, este último se descarta automáticamente. Si se detectan seis bits \texttt{1} consecutivos, el receptor sabe que es una bandera delimitadora válida y no parte de los datos.
+
+  \item \textbf{Violaciones de codificación de la capa física:} 
+  Este método es aplicable únicamente en redes donde la codificación física a nivel de señal incluye cierta redundancia. Por ejemplo, en la codificación Manchester, cada bit se transmite como dos estados lógicos separados (alto-bajo o bajo-alto). Las combinaciones alto-alto y bajo-bajo son estados ilegales. La capa de enlace puede generar deliberadamente estas violaciones de codificación de la capa física para delimitar el inicio y el fin de las tramas, dado que es imposible que estos patrones aparezcan dentro del flujo de bits codificado válidamente.
+\end{itemize}
+
+Muchos protocolos de enlace de datos usan una combinación de estos métodos por seguridad. Un patrón común utilizado para Ethernet y 802.11 es hacer que una trama inicie con un patrón bien definido, conocido como \textbf{preámbulo}. Este patrón podría ser bastante largo (es común que cuente con 72 bits para 802.11) de modo que el receptor se pueda preparar para un paquete entrante. El preámbulo va seguido de un campo de longitud (cuenta) en el encabezado, que se utiliza para localizar el final de la trama.
+
+\subsubsection{Control de Errores}
+
+Una vez resuelto el problema de delimitar las tramas, debemos garantizar que todas ellas se entreguen a la capa de red del destino en el orden correcto. Dado que los canales físicos son inherentemente imperfectos, es necesario implementar mecanismos para lidiar con las tramas que se dañan o se pierden por completo durante la transmisión. La estrategia fundamental consiste en proporcionar al emisor una retroalimentación explícita: el receptor devuelve tramas de control especiales que contienen un \textbf{acuse de recibo} positivo o negativo.
+
+Sin embargo, la retroalimentación por sí sola es insuficiente ante la pérdida absoluta de una trama de datos o de su respectivo acuse de recibo, escenario que dejaría al emisor en un estado de espera infinita. Para evitar este bloqueo lógico, se introducen los \textbf{temporizadores}. Al transmitir una trama, el emisor inicia un reloj configurado con un intervalo de tiempo suficiente para que la trama llegue, sea procesada y regrese la confirmación. Si el temporizador expira sin que haya llegado una respuesta, el emisor asume que ocurrió un fallo y retransmite la trama. 
+
+Esta técnica de retransmisión basada en tiempos límite resuelve el problema del estancamiento, pero introduce una nueva vulnerabilidad: la entrega de tramas duplicadas si el elemento perdido fue únicamente el acuse de recibo. Para resolver esta ambigüedad, el protocolo exige asignar \textbf{números de secuencia} a cada trama saliente, lo que permite al receptor distinguir inequívocamente entre una trama nueva y una retransmisión redundante.
+
+\subsubsection{Control de Flujo}
+
+Un problema crítico de diseño en la capa de enlace de datos (y en las capas superiores) es la discrepancia de capacidades entre un emisor rápido y un receptor lento. Cuando un dispositivo de alto rendimiento transmite tramas de manera sistemática a una velocidad superior a la que el nodo de destino puede procesar, los búferes de recepción se saturan. En consecuencia, el receptor se ve forzado a descartar tramas por falta de espacio, incluso si la transmisión física a través del canal estuvo completamente libre de errores. 
+
+Para evitar esta pérdida de información, los protocolos implementan mecanismos que regulan la transmisión, divididos en dos enfoques principales. El primero es el \textbf{control de flujo basado en retroalimentación}, donde el receptor devuelve información explícita al emisor para autorizarle el envío de más datos o notificarle su estado. El segundo es el \textbf{control de flujo basado en tasa}, un mecanismo integrado en el protocolo que limita la velocidad máxima a la que el emisor puede inyectar datos en el canal, sin requerir notificaciones por parte del receptor.
+
+\subsection{Ejemplo de Protocolo de Enlace de Datos (PPP)}
+
+SONET es el protocolo de capa física que se utiliza con más frecuencia sobre los enlaces de fibra óptica de área amplia que constituyen la espina dorsal de las redes de comunicaciones. Provee un flujo de bits que opera a una tasa de transmisión bien definida, organizado en forma de cargas
+útiles de bytes de tamaño fijo. 
+
+Para transportar paquetes sobre SONET, la capa de enlace de datos necesita un mecanismo de entramado específico. El protocolo estándar de Internet utilizado casi universalmente en enrutadores para esta tarea es el \textbf{PPP (Protocolo Punto a Punto)}. Se utiliza para manejar la configuración de detección de errores en los enlaces, soporta múltiples protocolos, permite la autentificación y tiene muchas otras funciones. Con un amplio conjunto de opciones, PPP provee tres características principales:
+
+\begin{itemize}
+  \item Un método de entramado estricto orientado a bytes, que delinea sin ambigüedades el final de una trama y el inicio de la siguiente (utilizando banderas especiales y relleno de bytes). El formato también maneja la detección de errores.
+  \item Un \textbf{Protocolo de Control de Enlace} (LCP, Link Control Protocol), encargado de activar líneas, probarlas, negociar opciones y desactivarlas en forma ordenada cuando ya no son necesarias.
+  \item Un mecanismo para negociar opciones de capa de red con independencia del protocolo de red que se vaya a utilizar. El método elegido debe tener un NCP (Network Control Protocol) distinto para cada capa de red soportada.
+\end{itemize}
+
+\subsubsection{Formato de Trama de PPP}
+
+La transmisión de paquetes IP sobre SONET utilizando PPP  casi siempre opera en ``modo no numerado'', proveyendo un servicio sin conexión ni confirmación de recepción, asumiendo que la fibra óptica es un medio sumamente confiable y delegando el manejo de pérdidas a la capa de transporte.
+
+El formato de la trama es el siguiente:
+\begin{itemize}
+    \item \textbf{Bandera (1 byte):} Todas las tramas PPP comienzan y terminan con el byte estándar \texttt{01111110} (0x7E). PPP emplea relleno de bytes usando un byte de escape (\texttt{01111101} o 0x7D) si la bandera aparece accidentalmente dentro de los datos útiles.
+    \item \textbf{Dirección (1 byte):} Se establece a un valor constante (\texttt{11111111}) indicando difusión (todas las estaciones deben aceptar la trama). En un enlace punto a punto real, este campo pierde sentido algorítmico, ya que el único destino posible es el otro extremo de la línea.
+    \item \textbf{Control (1 byte):} Se fija en \texttt{00000011}, valor que denota que la trama es del tipo no numerada (sin control estricto de secuencia).
+    \item \textbf{Protocolo (1 o 2 bytes):} Identifica qué tipo de datos transporta el campo de carga útil. Permite diferenciar si el contenido es un paquete IPv4, un paquete IPv6, o si se trata de mensajes de control internos del propio enlace (paquetes de LCP o NCP).
+    \item \textbf{Carga útil (Variable):} Contiene la información a transmitir. El tamaño máximo se negocia previamente mediante LCP (usualmente 1500 bytes por defecto).
+    \item \textbf{Suma de verificación (2 o 4 bytes):} Un código de comprobación de errores estandarizado (CRC, Cyclic Redundancy Check). Si el receptor calcula un CRC distinto al recibido, asume corrupción y descarta la trama sin emitir confirmación ni pedir retransmisión.
+\end{itemize}
+
+Cuando PPP se implementa físicamente sobre SONET, se aplica una técnica de aleatorización a los datos antes de la transmisión. Esto garantiza un número elevado de transiciones de voltaje (evitando largas secuencias de ceros o unos) necesarias para mantener la sincronización física del reloj del sistema SONET, mitigando así deficiencias que no puede manejar el simple entramado.
+
+

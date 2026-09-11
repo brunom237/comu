@@ -1,0 +1,259 @@
+\section{La Capa de Red}
+
+La capa de red proporciona una abstracción de las redes físicas subyacentes, creando una única red virtual que interconecta todos los hosts. En este nivel, la comunicación se abstrae del hardware específico y se delega la interconexión a dispositivos especializados denominados routers. El objetivo es entregar unidades de datos desde un origen hasta un destino a través de múltiples redes intermedias.
+
+El protocolo central de esta capa en la arquitectura de Internet es IP (Internet Protocol). IP define tres aspectos fundamentales:
+\begin{enumerate}
+    \item \textbf{La unidad de transferencia de datos:} Define el formato exacto de los datos en tránsito, denominado datagrama.
+    \item \textbf{La función de ruteo:} Especifica cómo los hosts y routers toman decisiones para seleccionar el camino hacia el destino.
+    \item \textbf{Reglas de entrega:} Implementa un modelo sin conexión y no confiable. IP no garantiza la entrega, no asegura el orden de llegada de los paquetes y no notifica sobre pérdidas o duplicaciones de datos, estas responsabilidades se delegan a la capa de transporte (ej. TCP).
+\end{enumerate}
+
+\begin{obs}
+  A nivel de diseño de redes, existen dos paradigmas fundamentales para la transmisión de información:
+  \begin{itemize}
+    \item \textbf{Conmutación de circuitos:} Establece un camino físico o lógico dedicado entre el emisor y el receptor antes de iniciar la transmisión. El mensaje se envía de forma continua y completa, sin ser dividido.
+    \begin{itemize}
+        \item Ventajas: Garantiza la capacidad del canal y mantiene un retardo constante durante toda la comunicación, asegurando la entrega.
+        \item Desventajas: Ineficiencia estructural y alto costo. El ancho de banda se desperdicia si los extremos no transmiten datos activamente, ya que los recursos permanecen reservados y bloqueados para otros usuarios.
+    \end{itemize}
+    \item \textbf{Conmutación de paquetes:} La información se divide en paquetes o datagramas en el origen antes de ser transmitida. Cada paquete se envía al canal de manera independiente y el mensaje original se reensambla en el destino.
+    \begin{itemize}
+        \item Ventajas: Permite multiplexar comunicaciones de manera concurrente sobre los mismos enlaces. Esto optimiza el aprovechamiento del ancho de banda y reduce costos. Además, otorga alta tolerancia a fallas, ya que cada paquete puede ser ruteado dinámicamente por un camino alternativo si un enlace falla.
+        \item Desventajas: No garantiza ni la capacidad del canal ni un retardo fijo. Frente a un pico de tráfico, los paquetes experimentan demoras en las colas de los routers, pueden llegar desordenados o ser descartados por congestión.
+    \end{itemize}
+  \end{itemize}
+\end{obs}
+
+El protocolo IP utiliza el paradigma de conmutación de paquetes, es decir, sin conexión y no confiable.
+
+\subsection{IPv4}
+
+\subsubsection{Estructura de Paquetes}
+
+Los paquetes IPv4 se componen de una cabecera y un área de datos. La cabecera contiene información esencial para el protocolo en si. Está compuesta por 12 campos, algunos de los cuales son obligatorios y otros opcionales. La cabecera mínima tiene un tamaño de 20 bytes, mientras que la máxima puede alcanzar los 60 bytes.
+
+Entre los campos más relevantes se encuentran:
+\begin{itemize}
+  \item \textbf{Version:} Indica la versión del protocolo (4 para IPv4).
+  \item \textbf{HLEN:} Longitud de la cabecera en palabras de 32 bits (mínimo 5, máximo 15).
+  \item \textbf{TOS:} Tipo de servicio, utilizado para priorizar el tráfico (D retardos cortos, T alto rendimiento, R alta confiabilidad).
+  \item \textbf{Total length:} Longitud total del datagrama (cabecera + datos) en bytes, con un máximo de $2^{16}$ bytes.
+  \item \textbf{Identification:} Identificador único del datagrama, utilizado para la fragmentación (DF don't fragment, MF more fragments).
+  \item \textbf{Fragment offset:} Desplazamiento de la fragmentación en múltiplos de 8 bytes.
+  \item \textbf{Tiempo de vida:} Contador de saltos hacia atrás (se descarta cuando es 0).
+  \item \textbf{Protocolo:} Indica el protocolo de nivel superior encapsulado en el datagrama (ej. 6 para TCP, 17 para UDP).
+  \item \textbf{Checksum:} Verificación de errores que cubre únicamente la cabecera del datagrama.
+  \item \textbf{Dirección IP de origen y destino:} Identificadores de la conexión de red de origen y destino, respectivamente.
+  \item \textbf{Opciones:} Campos opcionales que permiten funcionalidades adicionales, como seguridad, ruteo y control de flujo. La longitud de la cabecera se ajusta para acomodar estas opciones, y si no se utilizan, la cabecera tiene un tamaño fijo de 20 bytes.
+  \item \textbf{Padding:} Relleno de ceros para garantizar que la cabecera tenga un tamaño múltiplo de 32 bits.
+\end{itemize}
+
+\subsubsection{Direccionamiento IPv4}
+
+Para que la red virtual funcione, cada conexión a la red debe tener un identificador universal. En IPv4, las direcciones son enteros de 32 bits. Es importante destacar que \textbf{una dirección IP identifica una conexión a una red, no a una computadora específica}. Un host con múltiples interfaces de red o un router posee múltiples direcciones IP.
+
+Para facilitar la lectura, se separa el binario en bytes y se pasan a decimal (ej. \texttt{192.168.1.1}). La dirección se particiona en dos campos: un identificador de red (\textbf{netid}) y un identificador de host en esa red (\textbf{hostid}). 
+
+Históricamente, el direccionamiento original se dividió en clases basadas en los primeros bits de la dirección:
+\begin{itemize}
+    \item \textbf{Clase A:} Comienza con 0. netid de 8 bits y hostid de 24 bits. Rango de red: \texttt{1.0.0.0} a \texttt{126.0.0.0}.
+    \item \textbf{Clase B:} Comienza con 10. netid de 16 bits y hostid de 16 bits. Rango de red: \texttt{128.0.0.0} a \texttt{191.255.0.0}.
+    \item \textbf{Clase C:} Comienza con 110. netid de 24 bits y hostid de 8 bits. Rango de red: \texttt{192.0.0.0} a \texttt{223.255.255.0}.
+\end{itemize}
+
+Existen direcciones IP con significados especiales que no pueden asignarse a hosts individuales:
+\begin{itemize}
+    \item \textbf{Identifica una red:} hostid igual a todos ceros (ej. \texttt{192.168.1.0}).
+    \item \textbf{Anfitrión en esta red:} netid igual a todos ceros (ej. \texttt{0.0.0.10}).
+    \item \textbf{Broadcast dirigido:} hostid igual a todos unos. Refiere a todos los hosts de la red especificada (ej. \texttt{192.168.1.255}).
+    \item \textbf{Broadcast limitado:} \texttt{255.255.255.255}. Difusión confinada estrictamente a la red local.
+    \item \textbf{Loopback:} Usualmente \texttt{127.0.0.0} (todo el rango \texttt{127.0.0.0/8} es loopback). Utilizada para comunicación inter-procesos en la misma máquina. Los paquetes nunca salen a la red física. También se usa como sinónimo ``localhost''.
+    \item \textbf{Este host:} \texttt{0.0.0.0}. Utilizada únicamente durante el arranque del sistema operativo antes de conocer su dirección real.
+\end{itemize}
+
+\begin{obs}
+  La notación CIDR (Classless Inter-Domain Routing) permite representar direcciones IP y sus máscaras de subred de manera más compacta. Se escribe la dirección IP seguida de una barra y el número de bits que representan el netid/subnetid. Por ejemplo, \texttt{192.168.1.0/24} representa la red \texttt{192.168.1.0} con una máscara de subred de \texttt{255.255.255.0}. Se puede pensar como un rango de direcciones desde \texttt{192.168.1.0} hasta \texttt{192.168.1.255}.
+\end{obs}
+
+\subsubsection{Fragmentación y Reensamblado}
+Cada red física impone un \textbf{MTU (Maximum Transmission Unit)} sobre el tamaño de las tramas. Si un router recibe un datagrama mayor a la MTU de la red de salida, el router procede a la \textbf{fragmentación}. Divide el datagrama original en piezas más pequeñas, copiando la cabecera original en cada una y ajustando los campos pertinentes (Identification, Flags, Fragment Offset).
+
+Una regla arquitectónica estricta del protocolo IP es que \textbf{el reensamblado ocurre exclusivamente en el host de destino final}. Ningún router intermedio reensambla fragmentos. Esta decisión simplifica el estado de los routers y permite que los fragmentos viajen por rutas independientes. Si un solo fragmento se pierde, el datagrama entero se da por perdido.
+
+\subsubsection{Ruteo de Datagramas}
+El proceso de ruteo se divide analíticamente en dos modalidades basadas en el netid:
+\begin{itemize}
+    \item \textbf{Entrega directa:} Ocurre cuando el emisor y el receptor están conectados a la misma red física. El datagrama se encapsula en una trama y se transmite directamente.
+    \item \textbf{Entrega indirecta:} Ocurre cuando el destino reside en una red remota. El emisor envía el datagrama a un router local. Este router lee la dirección IP de destino, extrae el netid, y consulta su \textbf{tabla de ruteo} para reenviar el datagrama al siguiente router. El proceso se repite hasta alcanzar el router conectado directamente a la red de destino. Todo el ruteo se realiza analizando redes, no hosts individuales, limitando el tamaño de las tablas de ruteo.
+\end{itemize}
+
+\subsubsection{Subredes y Direcciones Privadas}
+Para optimizar el uso del espacio de direcciones de 32 bits, surgen las \textbf{subredes}. Este proceso consiste en tomar bits prestados de la porción de hostid para crear un \textbf{subnetid}. La partición lógica se procesa mediante una máscara de subred (ej. \texttt{255.255.255.0}). 
+
+Digamos que queremos dividir una red en dos subredes. Tomamos un bit prestado del hostid, lo que nos da un subnetid de 1 bit y un hostid de 7 bits. Esto permite crear dos subredes, cada una con 126 hosts válidos ($2^7 - 2$). La máscara de subred correspondiente sería \texttt{255.255.255.128}. Y las direcciones irían de x.0 a x.128 (sin contar la última y la primera dirección de cada subred, que son reservadas para la red y el broadcast, respectivamente).
+
+Este calculo se puede generalizar para cualquier cantidad de subredes y hosts. La fórmula para determinar la cantidad de subredes es $2^n$, donde $n$ es el número de bits prestados del hostid. La cantidad de hosts por subred se calcula como $2^m - 2$, donde $m$ es el número de bits restantes en el hostid. En algunos casos se requiere dividir la red en una cantidad de subredes que no sea potencia de 2. En estos casos, se toma el número de bits prestados como el entero más pequeño que cumpla $2^n \geq \text{cantidad de subredes deseadas}$.
+
+Otra manera de optimizar el uso del espacio de direcciones es mediante el uso de \textbf{direcciones privadas}. Estas direcciones no son enrutables en Internet y se utilizan para redes internas. Los rangos de direcciones privadas son:
+\begin{itemize}
+    \item Clase A: \texttt{10.0.0.0}
+    \item Clase B: \texttt{172.16.0.0} - \texttt{172.31.0.0}
+    \item Clase C: \texttt{192.168.0.0} - \texttt{192.168.255.0}
+\end{itemize}
+Cuando un host con una dirección privada necesita comunicarse con Internet, se utiliza un router con \textbf{NAT (Network Address Translation)} para traducir la dirección privada a una pública.
+
+\begin{obs}
+  Cuando hablamos de la \textbf{máscara} de subred, nos referimos a un número de 32 bits que indica qué porción de la dirección IP corresponde al netid/subnetid y cuál al hostid. Los bits en 1 representan el netid/subnetid y los bits en 0 representan el hostid. Por ejemplo, la máscara \texttt{255.255.255.128} indica que los primeros 25 bits corresponden al netid/subnetid y los últimos 7 bits al hostid.
+\end{obs}
+
+\subsubsection{Internet Control Message Protocol (ICMP)}
+
+ICMP es un protocolo de control que se utiliza para enviar mensajes de error y información de diagnóstico entre hosts y routers en una red IP. Algunos ejemplos de mensajes ICMP son los siguientes:
+\begin{itemize}
+  \item \textbf{Echo request/reply}: Se utilizan para probar la conectividad entre dos hosts.
+  \item \textbf{Destination unreachable}: Se envía cuando un datagrama no puede ser entregado al destino.
+  \item \textbf{Time exceeded}: Se envía cuando un datagrama excede el tiempo máximo de vida (TTL).
+  \item \textbf{Fragmentation needed}: Se envía cuando un datagrama necesita ser fragmentado pero el bit DF está activado.
+\end{itemize}
+
+Los mensajes ICMP de error siempre viajan hacia atrás, es decir, desde el destino hacia el origen y solo informan al emisor (no a los nodos intermedios).
+
+La información ICMP es transmitida por paquetes IP con el protocolo ICMP. La estructura de un paquete ICMP es la siguiente:
+\begin{itemize}
+  \item \textbf{Tipo (8 bits):} Indica el tipo de mensaje ICMP (ej. 0 para echo reply, 8 para echo request).
+  \item \textbf{Código (8 bits):} Indica el código del mensaje ICMP, que proporciona información adicional sobre el tipo de mensaje.
+  \item \textbf{Checksum (16 bits):} Verificación de errores que cubre todo el paquete ICMP.
+  \item \textbf{Datos (variable):} Contiene información adicional relevante para el mensaje ICMP, como la dirección IP de origen y destino, el identificador y el número de secuencia en el caso de mensajes echo request/reply.
+\end{itemize}
+
+Un ejemplo clásico de ICMP es el comando \texttt{ping}, que envía un mensaje de echo request a un host y espera un echo reply. Esto permite verificar la conectividad y medir el tiempo de respuesta entre dos hosts en una red.
+
+\subsubsection{Address Resolution Protocol (ARP)}
+
+ARP es un protocolo utilizado para mapear direcciones IP a direcciones MAC en una red local.
+
+El proceso es el siguiente:
+\begin{enumerate}
+  \item Un dispositivo necesita enviar datos a una IP.
+  \item Busca la MAC asociada a esa IP en su caché ARP.
+  \item Si no la encuentra, envía una solicitud ARP broadcast.
+  \item El dispositivo con esa IP responde con su MAC.
+  \item El remitente actualiza su caché ARP y envía el paquete al destinatario.
+\end{enumerate}
+
+
+\textbf{¿Por qué es necesario ARP?} La arquitectura de Internet se basa en la separación estricta entre la red lógica y la física. Las aplicaciones y los protocolos de nivel superior utilizan direcciones IP (lógicas) para identificar conexiones, pero el hardware de red opera exclusivamente en la capa de enlace. Las tarjetas de interfaz de red no tienen por qué saber qué es un datagrama IP, solo entienden de tramas físicas y direcciones físicas (direcciones MAC, identificadores de 48 bits asignados de fábrica).
+
+Uno podría preguntarse, ¿por qué no usar direcciones IP directamente como direcciones físicas? 
+
+Hacerlo destruiría la abstracción de capas y la independencia de la red lógica frente a la red física. Si las direcciones IP fueran físicas, cualquier cambio en la topología de la red o en el hardware requeriría una reconfiguración de todos los dispositivos. ARP mantiene ambas capas independientes al proveer un mecanismo de traducción entre ellas.
+
+\subsection{IPv6}
+
+\subsubsection{Motivaciones y Objetivos de Diseño}
+El protocolo IPv6 (formalizado en 1994) surge para resolver las limitaciones estructurales de IPv4, principalmente el inminente agotamiento de su espacio de direcciones de 32 bits. Entre sus objetivos de diseño técnicos destacan: garantizar mayor escalabilidad (aumentando el espacio de direcciones), simplificar el formato del datagrama para minimizar el overhead de procesamiento, delegar la fragmentación exclusivamente a los nodos origen y destino, asegurar la compatibilidad con IPv4 e incorporar seguridad en la capa de red.
+
+\subsubsection{El Datagrama IPv6 y Cabecera Base}
+
+El datagrama IPv6 adopta una arquitectura dividida entre una cabecera base fija y cabeceras de extensión opcionales. Este diseño aporta simplicidad, flexibilidad y eficiencia.
+
+La estructura general de un paquete IPv6 sigue este formato secuencial:
+\begin{center}
+    \texttt{[ IPv6 Header | Extension Headers | Upper Layer Protocol Data Unit ]}
+\end{center}
+
+Dentro de esta estructura, el payload del datagrama está compuesto estrictamente por las Extension Headers (si las hay) y la Upper Layer Protocol Data Unit (datos del protocolo de capa superior, como un segmento TCP). 
+
+La \textbf{cabecera base} tiene un tamaño fijo y estricto de 40 bytes. Para lograr esta eficiencia, se eliminaron campos presentes en IPv4 como el Header Checksum (la detección de errores se asume realizada por la capa de enlace), y los campos Identification, Flags y Fragment Offset. Además, se modificaron funcionalmente los siguientes campos:
+\begin{itemize}
+    \item Type of Service pasa a ser Traffic Class.
+    \item Total Length pasa a ser Payload Length, indicando exclusivamente el tamaño del Payload, excluyendo los 40 bytes de la cabecera base.
+    \item Time to Live pasa a ser Hop Limit.
+    \item Protocol pasa a ser Next Header, el cual funciona como un puntero hacia la primera cabecera de extensión o al protocolo de capa superior.
+\end{itemize}
+Se introduce también el nuevo campo Flow Label para identificar secuencias de paquetes que requieren un tratamiento especial en el ruteo. Y la modificación más significativa es la expansión de los campos de direcciones de 32 bits a 128 bits.
+
+\subsubsection{Cabeceras de Extensión}
+
+Las cabeceras de extensión reemplazan el campo de opciones estructurado de IPv4. Se encadenan secuencialmente a continuación de la cabecera base y son identificadas de manera recursiva a través del campo Next Header de la cabecera que las precede.
+
+El orden en el que se apilan estas cabeceras es crítico para garantizar un procesamiento de red eficiente. Dependiendo de su función, las cabeceras de extensión pueden ser procesadas por los routers intermedios o únicamente por el nodo destino.
+
+Las posibles cabeceras de extensión son las siguientes y se procesan en el orden en que aparecen:
+\begin{itemize}
+    \item \textbf{Hop by Hop:} Se utiliza para opciones de control y gestión de la red. Procesado por cada nodo.
+    \item \textbf{Destination:} Procesado únicamente por el nodo destino.
+    \item \textbf{Routing:} Permite especificar una lista de nodos intermedios por los que debe pasar el datagrama antes de llegar al destino final. Procesado por routers listados.
+    \item \textbf{Fragmentation:} Permite la fragmentación de datagramas en el nodo origen y su reensamblado en el nodo destino. Procesado únicamente por el nodo destino.
+    \item \textbf{Authentication:} Proporciona autenticación de origen y protección de integridad de los datos. Procesado únicamente por el nodo destino.
+    \item \textbf{Security:} Proporciona confidencialidad de los datos mediante cifrado. Procesado únicamente por el nodo destino.
+    \item \textbf{Destination:} Se utiliza para opciones específicas de la comunicación entre el origen y el destino. Procesado únicamente por el nodo destino.
+\end{itemize}
+
+La lógica es la siguiente: en el campo Next Header de la cabecera base se indica el tipo de la primera cabecera de extensión, si no hay ninguna, simplemente identifica el protocolo de capa superior. En caso de existir cabeceras de extensión, cada una de ellas contiene su propio campo Next Header que mediante un código indica el tipo de la siguiente cabecera en la secuencia.
+
+\subsubsection{Direccionamiento IPv6}
+Las direcciones IPv6 están compuestas por 128 bits, expandiendo el espacio disponible a $2^{128}$ direcciones. Al igual que en IPv4, las direcciones se asignan a interfaces, no a nodos físicos, permitiendo que un mismo nodo sea identificado de manera válida por cualquiera de las direcciones asociadas a sus interfaces.
+
+\begin{itemize}
+    \item \textbf{Representación:} Se estructuran en 8 campos de 16 bits expresados en formato hexadecimal y separados por \texttt{:}. El estándar permite omitir ceros a la izquierda dentro de cada bloque y compactar secuencias continuas de ceros mediante \texttt{::}. Se mantiene el uso de notación CIDR para definir prefijos de red.
+    \item \textbf{Tipos de Direcciones:}
+    \begin{itemize}
+        \item \textbf{Unicast:} Identifican a una única interfaz en la red.
+        \item \textbf{Anycast:} Identifican a un conjunto de interfaces, generalmente en nodos distintos.
+        \item \textbf{Multicast:} Identifican a un grupo de interfaces.
+    \end{itemize}
+\end{itemize}
+
+\subsubsection{Scopes de Direcciones Unicast}
+Las direcciones Unicast se segmentan según su alcance:
+
+\begin{itemize}
+    \item \textbf{Global:} Direcciones globalmente ruteables en la Internet pública. Estructuralmente constan de un Global Routing Prefix de $n$ bits (típicamente asignado por un registro regional o RIR), un Subnet ID de $n-64$ bits y un Interface ID de $64$ bits. El rango es \texttt{2000::} hasta \texttt{3FFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF}. La dirección siempre comienza con los bits \texttt{001}.
+    
+    \item \textbf{Link Local:} Direcciones válidas estrictamente dentro del enlace físico o segmento local. Jamás son ruteadas. Se generan de manera automática y son fundamentales para protocolos administrativos internos como el descubrimiento de vecinos. La estructura es \texttt{FE80}, luego 48 bits de ceros, y finalmente 64 bits del Interface ID.
+    \item \textbf{Unique Local:} Direcciones ruteables de uso exclusivamente privado dentro de una organización o sitio. Su forma general comienza con \texttt{FC00} o \texttt{FD00}, seguidos de 40 bits de Global ID, 16 bits de Subnet ID y 64 bits del Interface ID. El Global ID es generado de manera pseudoaleatoria para garantizar la unicidad dentro de la organización. No son ruteables en Internet global.
+    \item \textbf{Direcciones Especiales:} Loopback (\texttt{::1/128}) utilizada para pruebas locales (equivalente a \texttt{127.0.0.1} en IPv4) y la dirección no especificada (\texttt{::/128}), que indica ausencia de dirección y solo se utiliza como origen durante el proceso de inicialización.
+\end{itemize}
+
+\subsubsection{Identificador de Interfaz}
+El Identificador de Interfaz (IID) conforma los 64 bits menos significativos de una dirección Unicast típica y debe ser único dentro de su prefijo de subred. Este identificador puede generarse mediante asignación manual, mediante autoconfiguración stateless, o basándose en la dirección física MAC utilizando el estándar EUI-64.
+
+
+
+\subsubsection{Anycast}
+
+Una dirección Anycast identifica a un conjunto de interfaces que, por lo general, pertenecen a nodos distintos. Las direcciones Anycast son sintácticamente indistinguibles de las direcciones Unicast, ya que se asignan a partir del mismo espacio de direccionamiento. 
+
+Cuando un paquete se envía a una dirección Anycast, la infraestructura de ruteo lo entrega únicamente a la interfaz más cercana según las métricas del protocolo de enrutamiento. Sus aplicaciones principales incluyen el balanceo de carga y el descubrimiento de servicios distribuidos en la red.
+
+Todo router IPv6 está obligado a soportar la dirección Anycast Subnet-Router. Esta dirección se construye concatenando el prefijo de la subred con un Identificador de Interfaz (IID) compuesto íntegramente por ceros. Un paquete enviado a esta dirección se entregará al router más próximo que tenga una interfaz en dicha subred.
+
+\subsubsection{Multicast}
+
+El soporte para Multicast es obligatorio en todos los nodos IPv6 y reemplaza de manera definitiva al mecanismo de Broadcast de IPv4. Una dirección Multicast identifica a un grupo de interfaces y un paquete enviado a esta dirección es procesado por todos los miembros del grupo.
+
+Su estructura general se compone de los siguientes campos:
+\begin{itemize}
+    \item \textbf{Prefijo (8 bits):} Siempre toma el valor hexadecimal \texttt{FF}.
+    \item \textbf{Flags (4 bits):} Indican características de la dirección \texttt{|0|R|P|T|}. El bit T indica si la dirección es permanente y asignada por IANA (T=0) o si es temporal (T=1). El bit P indica si la dirección está basada en un prefijo de red unicast (P=1).
+    \item \textbf{Scope (4 bits):} Define el límite de alcance topológico para el ruteo del paquete. Valores predefinidos incluyen: 1 (local a la interfaz o loopback), 2 (local al enlace), 3 (local a la subred), 5 (local al sitio) y E (alcance global).
+    \item \textbf{Group ID (112 bits):} Identificador único del grupo Multicast.
+\end{itemize}
+
+Ejemplos predefinidos de alcance de enlace (Scope 2) incluyen \texttt{FF02::1} (todos los nodos en el enlace local) y \texttt{FF02::2} (todos los routers en el enlace local).
+
+\textbf{Multicast Solicited-Node}
+
+Es una dirección Multicast crítica utilizada por el protocolo Neighbor Discovery. Se forma concatenando el prefijo reservado \texttt{FF02::1:FF/104} con los 24 bits menos significativos del Identificador de Interfaz (IID) del nodo.
+
+\begin{obs}
+  El protocolo Neighbor Discovery es el mecanismo estándar de IPv6 utilizado por los nodos para descubrir la topología local, determinar las direcciones MAC de los vecinos y mantener información de estado sobre la alcanzabilidad de las rutas.
+  
+  Sus funciones principales incluyen:
+  \begin{itemize}
+    \item \textbf{Resolución de direcciones:} Reemplaza a ARP. Permite a un nodo determinar la dirección MAC de un vecino a partir de su dirección IPv6, eliminando el broadcast y utilizando en su lugar mensajes ICMPv6 sobre direcciones multicast Solicited-Node.
+    \item \textbf{Descubrimiento de routers:} Permite a los hosts localizar automáticamente a los routers residentes en el enlace físico adjunto.
+  \end{itemize}
+\end{obs}

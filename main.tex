@@ -1,0 +1,64 @@
+\documentclass[12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{tikz}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+
+\geometry{a4paper, margin=1in}
+\usepackage{parskip}
+\usepackage{amsthm}
+\usepackage{stmaryrd}
+\theoremstyle{definition}
+\newtheorem{definicion}{Definición}[section]
+\newtheorem{ej}{Ejemplo}[section]
+\newtheorem{ejercicio}{Ejercicio}[section]
+
+\theoremstyle{plain}
+\newtheorem{teo}{Teorema}[section]
+\newtheorem{coro}{Corolario}[teo]
+\newtheorem{lema}[teo]{Lema}
+\newtheorem{prop}{Proposición}[section]
+\newtheorem{obs}{Observación}[section]
+
+\usepackage{listings}
+\usepackage{amsmath}
+
+\lstset{
+    basicstyle=\ttfamily,
+    columns=fullflexible,
+    mathescape=true
+}
+
+\renewcommand{\proofname}{Demostración}
+
+\title{Resumen de Comunicaciones}
+\date{\today}
+
+\begin{document}
+\newgeometry{top=8cm}
+
+\maketitle
+
+\restoregeometry 
+
+\newpage
+\tableofcontents
+
+\newpage
+\include{units/1}
+\newpage
+\include{units/2}
+\newpage
+\include{units/3}
+\newpage
+\include{units/4}
+\newpage
+\include{units/5}
+
+\end{document}
