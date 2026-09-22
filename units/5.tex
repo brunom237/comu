@@ -248,12 +248,86 @@ Ejemplos predefinidos de alcance de enlace (Scope 2) incluyen \texttt{FF02::1} (
 
 Es una dirección Multicast crítica utilizada por el protocolo Neighbor Discovery. Se forma concatenando el prefijo reservado \texttt{FF02::1:FF/104} con los 24 bits menos significativos del Identificador de Interfaz (IID) del nodo.
 
-\begin{obs}
-  El protocolo Neighbor Discovery es el mecanismo estándar de IPv6 utilizado por los nodos para descubrir la topología local, determinar las direcciones MAC de los vecinos y mantener información de estado sobre la alcanzabilidad de las rutas.
-  
-  Sus funciones principales incluyen:
-  \begin{itemize}
-    \item \textbf{Resolución de direcciones:} Reemplaza a ARP. Permite a un nodo determinar la dirección MAC de un vecino a partir de su dirección IPv6, eliminando el broadcast y utilizando en su lugar mensajes ICMPv6 sobre direcciones multicast Solicited-Node.
-    \item \textbf{Descubrimiento de routers:} Permite a los hosts localizar automáticamente a los routers residentes en el enlace físico adjunto.
-  \end{itemize}
-\end{obs}
+\subsubsection{ICMPv6 (Internet Control Message Protocol version 6)}
+
+Posee las mismas funciones generales que ICMPv4, como informar características de la red, realizar diagnósticos e informar errores en el procesamiento de paquetes, pero ambas versiones no son compatibles entre sí. ICMPv6 se implementa como un encabezado de extensión identificado por el valor 58 en el campo Next Header.
+
+Además de las funciones clásicas, ICMPv6 es la base para las funcionalidades nativas de IPv6:
+\begin{itemize}
+  \item Gestión de grupos multicast.
+  \item Neighbor Discovery.
+  \item Descubrimiento de la Path MTU.
+\end{itemize}
+
+Los mensajes se dividen en dos categorías principales:
+\begin{itemize}
+  \item \textbf{Mensajes de error:} Incluyen Destination Unreachable, Packet Too Big, Time Exceeded y Parameter Problem.
+  \item \textbf{Mensajes de información:} Incluyen los mensajes utilizados por el protocolo Neighbor Discovery o por ejemplo los Echo Request y Echo Reply (utilizados por el comando ping).
+\end{itemize}
+
+\subsubsection{Neighbor Discovery Protocol (NDP)}
+
+Es un protocolo basado en ICMPv6 utilizado por los hosts y routers para resolver dinámicamente múltiples requerimientos de la red local:
+\begin{itemize}
+  \item \textbf{Descubrimiento de MACs (reemplazo de ARP):} Determina la dirección MAC de los vecinos ubicados en el mismo enlace. Utiliza la dirección multicast solicited-node en lugar del broadcast de IPv4. El host envía un mensaje ICMPv6 Neighbor Solicitation solicitando la MAC del vecino. El vecino responde enviando un mensaje ICMPv6 Neighbor Advertisement informando su dirección MAC.
+  \item \textbf{Descubrimiento de routers y prefijos:} Los nodos IPv6 lo usan para localizar routers vecinos dentro del mismo enlace y obtener parámetros vitales como prefijos de red o banderas de autoconfiguración. Los routers envían periódicamente mensajes ICMPv6 Router Advertisement dirigidos a la dirección multicast all-nodes-link (\texttt{FF02::1}).
+  \item Detectar direcciones duplicadas en la red local.
+  \item Determinar la accesibilidad de los routers.
+  \item Redireccionamiento de paquetes.
+  \item Autoconfiguración de direcciones.
+\end{itemize}
+
+\subsubsection{Autoconfiguración de Direcciones}
+
+IPv6 permite a las interfaces autoconfigurarse mediante dos mecanismos:
+\begin{itemize}
+  \item \textbf{Stateful:} La configuración es provista de forma centralizada por un servidor de direcciones (como DHCPv6).
+  \item \textbf{Stateless:} El host genera su propia dirección IP a partir de la información de los routers (Router Advertisement) y de su propia dirección MAC. Genera una dirección por cada prefijo informado. Si no existen routers en la red, el host genera únicamente una dirección link local combinando el prefijo \texttt{FE80::/64} + IID (MAC).
+\end{itemize}
+
+El proceso de autoconfiguración ocurre de la siguiente manera:
+\begin{enumerate}
+  \item El host genera una dirección link-local (\texttt{FE80::/64} + IID (MAC)).
+  \item Esta nueva dirección se une automáticamente a los grupos multicast solicited-node y all-node.
+  \item Se verifica la unicidad de la dirección en el medio físico. Si la dirección ya está en uso, el proceso se interrumpe y se exige configuración manual. Si es única, se atribuye definitivamente a la interfaz.
+  \item La dirección es válida, entonces el host transmite un mensaje Router Solicitation hacia el grupo multicast all-routers.
+  \item Todos los routers del enlace responden con mensajes Router Advertisement detallando prefijos, MTUs,...
+\end{enumerate}
+
+\subsubsection{Path MTU Discovery (PMTUD)}
+
+PMTUD es un mecanismo que busca garantizar que el paquete transmitido tenga siempre el mayor tamaño posible sin exceder los límites de ningún enlace. 
+
+A diferencia de IPv4, donde cualquier router intermedio puede fragmentar los paquetes, en IPv6 la fragmentación se realiza de forma exclusiva en el origen. Por este motivo, todos los nodos IPv6 deben soportar PMTUD. 
+
+El proceso es iterativo e involucra el uso de ICMPv6:
+\begin{enumerate}
+  \item El origen envía un paquete tomando como base la MTU de su propio enlace directo.
+  \item Si un router en la trayectoria tiene una MTU de salida inferior, devuelve un error ICMPv6 Packet Too Big indicando la nueva MTU máxima permitida y descarta el paquete.
+  \item El origen recibe el error y reenvía el paquete fragmentándolo para ajustarse a la nueva MTU descubierta.
+  \item Este ciclo se repite hasta que el paquete llega a destino, determinando así la MTU de la ruta final. En los envíos a grupos multicast, el tamaño del paquete se ajusta a la menor PMTU de todo el conjunto de destinos posibles.
+\end{enumerate}
+
+\subsubsection{Calidad de Servicio (QoS)}
+
+El datagrama IPv6 incluye dos campos específicos en la cabecera diseñados para proveer calidad de servicio:
+\begin{itemize}
+  \item \textbf{Traffic Class (8 bits):} Se utiliza para el modelo DiffServ mediante el código DSCP.
+  \item \textbf{Flow Label (20 bits):} Identifica flujos desde un mismo origen hacia un destino que requieren un tratamiento o QoS particular en la red.
+\end{itemize}
+
+Para administrar estos recursos de red existen tres modelos operativos:
+\begin{itemize}
+  \item \textbf{Best Effort:} Todos los paquetes reciben exactamente el mismo trato. No ofrece garantías de servicio. El ancho de banda, retardo y variabilidad son impredecibles y dependen unicamente de sobre-provisionar la red.
+  \item \textbf{Integrated Services (IntServ):} Realiza una reserva explícita de recursos utilizando el protocolo RSVP. Resulta poco escalable en Internet porque obliga a todos los routers del camino a mantener mucha información de estado por cada flujo individual que procesan.
+  \item \textbf{Differentiated Services (DiffServ):} 67
+\end{itemize}
+
+\subsubsection{Coexistencia y Transición IPv4-IPv6}
+
+Dado que los router y hosts operan tanto IPv4 como IPv6, existen mecanismos de coexistencia para permitir la operación simultánea de ambos protocolos, divididos en tres categorías:
+\begin{itemize}
+  \item \textbf{Dual Stack:} Provee soporte completo para procesar ambos tipos de paquetes en el mismo dispositivo o router. Un servidor configurado con doble pila requiere al menos una dirección por protocolo (por ejemplo, vía DHCP para IPv4 y autoconfiguración para IPv6).
+  \item \textbf{Tunneling:} Permite el tráfico de paquetes IPv6 sobre la infraestructura de la red IPv4 existente. El paquete IPv6 entero se encapsula agregando un encabezado IPv4 exterior en el router de origen y se desencapsula en el router de destino.
+  \item \textbf{Traducción:} Permite la comunicación directa entre nodos que solamente soportan IPv6 y nodos que solamente soportan IPv4. Se logra traduciendo literalmente los encabezados IPv4 en IPv6, convirtiendo direcciones, actuando sobre las API de programación o interviniendo directamente los paquetes TCP/UDP.
+\end{itemize}
